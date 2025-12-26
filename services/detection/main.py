@@ -44,21 +44,6 @@ async def main():
     while not shutdown_event.is_set():
         try:
             # 1. Get Job (Blocking wait)
-            # Since we use blocking redis command in async wrapper, check implementation
-            # consumer.get_next_job uses 'await client.brpoplpush' which is compliant
-            # But if we want to support clean shutdown, we might want a timeout loop
-            # to check shutdown_event.
-            # But brpoplpush with 0 blocks forever.
-            # Let's rely on breaking the connection or just standard kill for MVP.
-            # Ideally we use a timeout (e.g. 5s) and loop.
-            
-            # Note: RedisConsumer.get_next_job uses 0 timeout. 
-            # If we want to check shutdown_event, we should change timeout to e.g. 1s.
-            # I will modify consumer? No, I'll just let it block. 
-            # Signal handler will cancel the pending task eventually if we structure it right, 
-            # but for now let's just run. simple.
-            
-            # 1. Get Job (Blocking wait)
             job_info = await consumer.get_next_job()
             
             if not job_info:

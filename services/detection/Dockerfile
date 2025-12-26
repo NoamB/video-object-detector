@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy shared library
 COPY shared /app/shared
 
-# Copy service code
+# Copy service code and scripts
 COPY services/detection /app
+COPY scripts /app/scripts
 
 CMD ["python", "main.py"]

@@ -2,10 +2,9 @@ import asyncio
 import sys
 import os
 
-# Add necessary paths to sys.path to allow importing from services
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-service_dir = os.path.join(root_dir, "services", "detection")
-sys.path.append(service_dir)
+# Add relevant paths to sys.path
+sys.path.append("/app")
+sys.path.append(os.path.join(os.getcwd(), "services", "detection"))
 
 try:
     from database import Base, engine

@@ -29,7 +29,7 @@ class ObjectDetector:
                 detections.append({
                     "class": self.model.names[int(box.cls)],
                     "confidence": float(box.conf),
-                    "bbox": box.xyxy.cpu().numpy().tolist()[0] # [x1, y1, x2, y2]
+                    "bbox": box.xyxyn.cpu().numpy().tolist()[0] # [x1, y1, x2, y2]
                 })
                 
         return detections

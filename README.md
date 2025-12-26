@@ -57,6 +57,17 @@ docker-compose exec postgres psql -U user -d videodb
 SELECT * FROM detections ORDER BY timestamp DESC LIMIT 5;
 ```
 
+### 🗄 Database Management
+Run these management scripts from inside the containers using `docker-compose exec`:
+- **Initialize Database**:
+  ```bash
+  docker-compose exec detection-service python scripts/init_db.py
+  ```
+- **Wipe Database**:
+  ```bash
+  docker-compose exec detection-service python scripts/drop_db.py
+  ```
+
 ## 🧪 Development
 
 ### Project Structure
