@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  ingestion-service:
+    build:
+      context: ./services/ingestion
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - video_data:/data
+    depends_on:
+      - redis
+
+  detection-service:
+    build:
+      context: ./services/detection
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATABASE_URL=postgresql+asyncpg://user:bg_password@postgres:5432/videodb
+    volumes:
+      - video_data:/data
+    depends_on:
+      - redis
+      - postgres
+    deploy:
+      resources:
+        limits:
+          memory: 4G # YOLO might need RAM
+
+  redis:
+    image: redis:7.2
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: bg_password
+      POSTGRES_DB: videodb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  video_data:
+  redis_data:
+  postgres_data:
