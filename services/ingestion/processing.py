@@ -5,7 +5,7 @@ from shared.storage import VideoStorage
 
 logger = logging.getLogger(__name__)
 
-def extract_frames(video_path: str, video_id: str, storage: VideoStorage, sample_rate_sec: int = 1) -> List[str]:
+def extract_frames(video_path: str, video_id: str, storage: VideoStorage, sample_rate_sec: int = 1) -> List[tuple]:
     """
     Extracts frames from a video file and saves them to storage.
     
@@ -16,7 +16,7 @@ def extract_frames(video_path: str, video_id: str, storage: VideoStorage, sample
         sample_rate_sec: Extract 1 frame every X seconds. Default 1.
         
     Returns:
-        List of paths to the saved frames.
+        List of (path, hash) tuples for the saved frames.
     """
     cap = cv2.VideoCapture(video_path)
     
@@ -29,7 +29,7 @@ def extract_frames(video_path: str, video_id: str, storage: VideoStorage, sample
         
     frame_interval = int(fps * sample_rate_sec)
     frame_count = 0
-    saved_frames = []
+    saved_data = [] # List of (path, hash)
     
     while True:
         success, frame = cap.read()
@@ -41,11 +41,17 @@ def extract_frames(video_path: str, video_id: str, storage: VideoStorage, sample
             success, buffer = cv2.imencode(".jpg", frame)
             if success:
                 frame_idx = frame_count
-                frame_path = storage.save_frame(video_id, frame_idx, buffer.tobytes())
-                saved_frames.append(frame_path)
+                frame_bytes = buffer.tobytes()
+                
+                # Calculate Hash
+                frame_hash = storage.compute_hash(frame_bytes)
+                
+                # Save
+                frame_path = storage.save_frame(video_id, frame_idx, frame_bytes)
+                saved_data.append((frame_path, frame_hash))
                 
         frame_count += 1
         
     cap.release()
-    logger.info(f"Extracted {len(saved_frames)} frames from video {video_id}")
-    return saved_frames
+    logger.info(f"Extracted {len(saved_data)} frames from video {video_id}")
+    return saved_data

@@ -12,6 +12,7 @@ services:
       - REDIS_PORT=6379
     volumes:
       - video_data:/data
+      - ./scripts:/app/scripts
     depends_on:
       - redis
 
@@ -25,6 +26,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://user:bg_password@postgres:5432/videodb
     volumes:
       - video_data:/data
+      - ./scripts:/app/scripts
     depends_on:
       - redis
       - postgres

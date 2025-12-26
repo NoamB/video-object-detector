@@ -1,5 +1,5 @@
-import os
 import shutil
+import hashlib
 from typing import Protocol, Any
 
 # Define UploadFile type loosely to avoid hard dependency on FastAPI in shared?
@@ -72,3 +72,17 @@ class FileSystemStorage:
     def get_frame_path(self, frame_reference: str) -> str:
         # In FileSystemStorage, the reference IS the path
         return frame_reference
+
+    @staticmethod
+    def compute_hash(data: bytes) -> str:
+        """Computes SHA256 hash of byte data."""
+        return hashlib.sha256(data).hexdigest()
+
+    @staticmethod
+    def compute_file_hash(file_path: str) -> str:
+        """Computes SHA256 hash of a file in chunks."""
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()

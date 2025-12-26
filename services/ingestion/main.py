@@ -25,21 +25,31 @@ def process_video_bg(video_path: str, video_id: str):
     try:
         logger.info(f"Starting processing for video {video_id}")
         
-        # 1. Extract Frames
-        frame_paths = extract_frames(video_path, video_id, storage, sample_rate_sec=1)
+        # 1. Compute Video Hash
+        video_hash = storage.compute_file_hash(video_path)
+        logger.info(f"Video {video_id} hash: {video_hash}")
         
-        # 2. Publish to Redis
-        for path in frame_paths:
+        # 2. Extract Frames
+        frame_data = extract_frames(video_path, video_id, storage, sample_rate_sec=1)
+        
+        # 3. Publish to Redis
+        for path, frame_hash in frame_data:
             # Extract frame index from filename (e.g., "120.jpg" -> 120)
             filename = os.path.basename(path)
             try:
                 frame_idx = int(os.path.splitext(filename)[0])
-                producer.publish_frame(video_id, path, frame_idx)
+                producer.publish_frame(
+                    video_id, 
+                    path, 
+                    frame_idx, 
+                    frame_hash=frame_hash,
+                    video_hash=video_hash
+                )
             except ValueError:
                 logger.warning(f"Could not parse frame index from filename: {filename}")
                 continue
                 
-        logger.info(f"Published {len(frame_paths)} frames for video {video_id}")
+        logger.info(f"Published {len(frame_data)} frames for video {video_id}")
         
     except Exception as e:
         logger.error(f"Error processing video {video_id}: {str(e)}")

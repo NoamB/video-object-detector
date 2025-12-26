@@ -3,7 +3,8 @@ from sqlalchemy.orm import declarative_base
 import os
 
 # Default to Docker Compose service name 'postgres'
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@postgres:5432/videodb")
+# Use localhost if running on host, postgres if in docker
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:bg_password@localhost:5432/videodb")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)

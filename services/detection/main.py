@@ -30,9 +30,6 @@ async def main():
     await consumer.connect()
     detector = ObjectDetector()
     
-    # Initialize DB schema
-    await init_db()
-    
     # Executor for running blocking inference
     executor = ThreadPoolExecutor(max_workers=1) # YOLO is often not thread-safe or uses internal parallelism
     
@@ -61,22 +58,39 @@ async def main():
             # Signal handler will cancel the pending task eventually if we structure it right, 
             # but for now let's just run. simple.
             
-            raw_msg = await consumer.get_next_job()
+            # 1. Get Job (Blocking wait)
+            job_info = await consumer.get_next_job()
             
-            if not raw_msg:
-                # Connection error or timeout (if we had one)
+            if not job_info:
                 await asyncio.sleep(1)
                 continue
                 
-            job_data = json.loads(raw_msg)
+            msg_id, job_data = job_info
             video_id = job_data.get("video_id")
             frame_path = job_data.get("frame_path")
-            frame_idx = job_data.get("frame_index")
+            frame_idx = int(job_data.get("frame_index"))
+            expected_hash = job_data.get("frame_hash")
             
-            logger.info(f"Processing frame {frame_idx} for video {video_id}")
+            logger.info(f"Processing frame {frame_idx} for video {video_id} (ID: {msg_id})")
+            
+            # --- Hash Verification ---
+            if expected_hash:
+                try:
+                    with open(frame_path, "rb") as f:
+                        actual_hash = storage.compute_hash(f.read())
+                    if actual_hash != expected_hash:
+                        logger.error(f"CORRUPTION DETECTED: Hash mismatch for frame {frame_idx} of video {video_id}. "
+                                     f"Expected: {expected_hash}, Actual: {actual_hash}")
+                        # Acknowledge to drop it so it's not retried indefinitely in PEL
+                        await consumer.acknowledge(msg_id)
+                        continue
+                except Exception as e:
+                    logger.error(f"Failed to read/verify hash for frame {frame_path}: {e}")
+                    await asyncio.sleep(1)
+                    continue
+            # --------------------------
             
             # 2. Run Inference (Blocking CPU bound)
-            # Verify file exists? Detector handles it.
             detections = await loop.run_in_executor(
                 executor, 
                 detector.process_frame, 
@@ -96,8 +110,8 @@ async def main():
                 
             logger.info(f"Saved {len(detections)} detections for frame {frame_idx}")
             
-            # 4. Acknowledge (Remove from processing queue)
-            await consumer.complete_job(raw_msg)
+            # 4. Acknowledge (XACK)
+            await consumer.acknowledge(msg_id)
             
         except Exception as e:
             logger.error(f"Error in worker loop: {e}")
