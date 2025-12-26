@@ -1,5 +1,4 @@
-import redis
-import json
+from redis import asyncio as aioredis
 import logging
 import os
 from typing import Optional
@@ -28,7 +27,6 @@ class RedisConsumer:
         self.client = None
 
     async def connect(self):
-        from redis import asyncio as aioredis
         self.client = aioredis.Redis(host=self.host, port=self.port, db=self.db, decode_responses=True)
         logger.info(f"Connected to Redis at {self.host}:{self.port}")
 
