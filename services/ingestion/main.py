@@ -3,8 +3,8 @@ from typing import Dict
 import uuid
 import os
 import logging
-from storage import FileSystemStorage
-from producer import RedisProducer
+from shared.storage import FileSystemStorage
+from shared.mq import RedisProducer
 from processing import extract_frames
 
 # Configure logging

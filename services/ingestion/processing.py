@@ -1,7 +1,7 @@
 import cv2
 import logging
 from typing import List
-from storage import VideoStorage
+from shared.storage import VideoStorage
 
 logger = logging.getLogger(__name__)
 

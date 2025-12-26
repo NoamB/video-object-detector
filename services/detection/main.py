@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from database import init_db, AsyncSessionLocal
 from models import DetectionResult
-from storage import FileSystemStorage
-from consumer import RedisConsumer
+from shared.storage import FileSystemStorage
+from shared.mq import RedisConsumer
 from detector import ObjectDetector
 
 # Configure logging

@@ -12,9 +12,13 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY services/detection/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy shared library
+COPY shared /app/shared
+
+# Copy service code
+COPY services/detection /app
 
 CMD ["python", "main.py"]

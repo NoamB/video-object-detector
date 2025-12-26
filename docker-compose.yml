@@ -3,7 +3,8 @@ version: '3.8'
 services:
   ingestion-service:
     build:
-      context: ./services/ingestion
+      context: .
+      dockerfile: services/ingestion/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -16,7 +17,8 @@ services:
 
   detection-service:
     build:
-      context: ./services/detection
+      context: .
+      dockerfile: services/detection/Dockerfile
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -29,7 +31,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G # YOLO might need RAM
+          memory: 4G
 
   redis:
     image: redis:7.2
