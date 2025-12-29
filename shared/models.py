@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, JSON, DateTime, Float
 from sqlalchemy.sql import func
-from database import Base
+from shared.database import Base
 
 class DetectionResult(Base):
     __tablename__ = "detections"

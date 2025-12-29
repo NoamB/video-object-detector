@@ -16,10 +16,11 @@ graph TD
     classDef service fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000;
     classDef storage fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
     
-    User[User] -- Upload Video --> Ingestion
+    User[User] -- Upload/View Results --> Ingestion
     
-    subgraph "Service A: Ingestion"
-        Ingestion[Ingestion API]:::service
+    subgraph "Service A: Ingestion & Analytics"
+        Ingestion[Ingestion API & Dashboard]:::service
+        DB_Adapter[DB Adapter]:::service
     end
 
     subgraph "Service B: Processing"
@@ -41,6 +42,7 @@ graph TD
     %% Flows
     Ingestion -- 1. Save Video --> Vol
     Ingestion -- 2. Publish 'video-uploads' --> Kafka
+    Ingestion -- View Results --> DB
     
     Kafka -- 3. Consume 'video-uploads' --> Processing
     Processing -- 4. Extract Frames --> Extractor
@@ -55,10 +57,10 @@ graph TD
 
 ## 3. Core Components
 
-### Service A: Ingestion Service
-- **Role**: Entry point for users. Saves the original video file and queues it for processing.
-- **Tech**: FastAPI (Python).
-- **Data Flow**: `Upload -> Disk -> Kafka (video-uploads)`
+### Service A: Ingestion & Analytics Service
+- **Role**: Entry point for users. Handles uploads, queues video tasks, and serves the dashboard UI/API for viewing results.
+- **Tech**: FastAPI (Python), Jinja2.
+- **Data Flow**: `Upload -> Disk -> Kafka (video-uploads)` and `DB -> UI`
 
 ### Service B: Processing Service
 - **Role**: Consumes uploaded videos, extracts individual frames at a specific interval.

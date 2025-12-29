@@ -7,9 +7,9 @@ sys.path.append("/app")
 sys.path.append(os.path.join(os.getcwd(), "services", "detection"))
 
 try:
-    from database import Base, engine
+    from shared.database import Base, engine
     # Import models to register them with Base.metadata
-    from models import DetectionResult
+    from shared.models import DetectionResult
 except ImportError as e:
     print(f"Error: Could not import database/models. Detail: {e}")
     sys.exit(1)

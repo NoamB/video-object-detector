@@ -4,8 +4,8 @@ import logging
 import signal
 from concurrent.futures import ThreadPoolExecutor
 
-from database import init_db, AsyncSessionLocal
-from models import DetectionResult
+from shared.database import init_db, AsyncSessionLocal
+from shared.models import DetectionResult
 from shared.storage import FileSystemStorage
 from shared.mq import KafkaConsumer
 from detector import ObjectDetector

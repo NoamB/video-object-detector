@@ -4,9 +4,10 @@ A scalable, asynchronous 3-service system for processing video uploads, extracti
 
 ## 🚀 Features
 
-- **Service A (Ingestion)**: 
+- **Service A (Ingestion & Analytics)**: 
   - Fast file upload (FastAPI).
   - Reliable task publishing to Kafka (`video-uploads`).
+  - Integrated Dashboard for viewing real-time detection results.
 - **Service B (Processing Worker)**:
   - Consumes from Kafka (`video-uploads`).
   - Extracts frames using OpenCV.

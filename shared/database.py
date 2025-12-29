@@ -14,10 +14,9 @@ async def init_db():
     Initialize database tables.
     """
     try:
-        import models # Ensure models are loaded so Base.metadata is populated
+        from shared import models # Ensure models are loaded so Base.metadata is populated
     except ImportError:
-        # Handle case where it might be imported as detection.models depending on entry point
-        from . import models
+        import models
         
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

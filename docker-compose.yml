@@ -7,10 +7,13 @@ services:
       - "8000:8000"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=postgresql+asyncpg://user:bg_password@postgres:5432/videodb
+      - FRAME_STORAGE_PATH=/data/frames
     volumes:
       - video_data:/data
     depends_on:
       - kafka
+      - postgres
 
   processing-service:
     build:
@@ -39,20 +42,6 @@ services:
       resources:
         limits:
           memory: 4G
-
-  dashboard-service:
-    build:
-      context: .
-      dockerfile: services/dashboard/Dockerfile
-    ports:
-      - "8001:8001"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://user:bg_password@postgres:5432/videodb
-      - FRAME_STORAGE_PATH=/data/frames
-    volumes:
-      - video_data:/data
-    depends_on:
-      - postgres
 
   kafka:
     image: bitnamilegacy/kafka:3.5
