@@ -75,8 +75,8 @@ flowchart TD
     A1 -- "(13) Query" --> D
     A1 -- "(14) Stream" --> S
 
-    %% Darker and thicker arrows for better visibility
-    linkStyle default stroke:#222,stroke-width:2px,color:#000
+    %% Balanced arrow and label styling for theme compatibility
+    linkStyle default stroke:#666,stroke-width:2px
 ```
 
 ## 3. Core Components
