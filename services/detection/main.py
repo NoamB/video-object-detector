@@ -24,6 +24,9 @@ def signal_handler():
 async def main():
     logger.info("Starting Detection Worker...")
     
+    # Auto-initialize DB tables
+    await init_db()
+    
     # Initialize components
     storage = FileSystemStorage()
     consumer = KafkaConsumer(topic="frame-tasks", group_id="detection-group")
