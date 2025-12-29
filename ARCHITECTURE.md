@@ -7,87 +7,132 @@ This system is designed for **Video Ingestion, Processing, and Object Detection*
 - **Scalability**: Each stage of the pipeline can be scaled independently.
 - **Reliability**: Message durability via Kafka and manual offset commits.
 - **Responsiveness**: Ingestion returns immediately after the video is saved and task is queued.
+- **Type Safety**: Pydantic models used for all inter-service communication.
 
 ## 2. High-Level Architecture
 
 ```mermaid
-graph TD
-    %% Styling for readability via high contrast
-    classDef service fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000;
-    classDef storage fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
-    
-    User[User] -- Upload/View Results --> Ingestion
-    
-    subgraph "Service A: Ingestion & Analytics"
-        Ingestion[Ingestion API & Dashboard]:::service
-        DB_Adapter[DB Adapter]:::service
-    end
+flowchart TD
+    %% Global Styles
+    classDef container fill:#f9f9f9,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,color:#333
+    classDef ingestion fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
+    classDef processing fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000
+    classDef detection fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+    classDef infra fill:#fffef3,stroke:#ef6c00,stroke-width:2px,color:#000
+    classDef module fill:#ffffff,stroke:#333,stroke-width:1px,color:#000
+    classDef user fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
 
-    subgraph "Service B: Processing"
-        Processing[Processing Worker]:::service
-        Extractor[Frame Extractor]:::service
-    end
+    U((User)):::user
 
-    subgraph "Service C: Detection"
-        Detection[Detection Worker]:::service
-        Model[YOLOv8 Model]:::service
+    subgraph ContainerA [Service A: Ingestion & Analytics]
+        direction TB
+        A1["main.py (API)"]:::module
+        A2["Templates/Static"]:::module
+        A1 --- A2
     end
+    class ContainerA ingestion
 
-    subgraph "Infrastructure"
-        Vol[Shared Volume]:::storage
-        Kafka[[Kafka Broker]]:::storage
-        DB[(PostgreSQL)]:::storage
+    subgraph ContainerB [Service B: Processing]
+        direction TB
+        B1["worker.py (Consumer)"]:::module
+        B2["processing.py (OpenCV)"]:::module
+        B1 --> B2
     end
+    class ContainerB processing
 
-    %% Flows
-    Ingestion -- 1. Save Video --> Vol
-    Ingestion -- 2. Publish 'video-uploads' --> Kafka
-    Ingestion -- View Results --> DB
-    
-    Kafka -- 3. Consume 'video-uploads' --> Processing
-    Processing -- 4. Extract Frames --> Extractor
-    Extractor -- 5. Save Frames --> Vol
-    Processing -- 6. Publish 'frame-tasks' --> Kafka
-    
-    Kafka -- 7. Consume 'frame-tasks' --> Detection
-    Detection -- 8. Read Frame --> Vol
-    Detection -- 9. Inference --> Model
-    Detection -- 10. Store Results --> DB
+    subgraph ContainerC [Service C: Detection]
+        direction TB
+        C1["main.py (Consumer)"]:::module
+        C2["detector.py (YOLOv8)"]:::module
+        C1 --> C2
+    end
+    class ContainerC detection
+
+    subgraph ContainerI [Infrastructure]
+        direction TB
+        K[[Kafka Broker]]:::infra
+        S[(Shared Storage)]:::infra
+        D[(PostgreSQL)]:::infra
+    end
+    class ContainerI infra
+
+    %% Data Flow
+    U -- "(1) Upload" --> A1
+    A1 -- "(2) Save Video" --> S
+    A1 -- "(3) Publish Task" --> K
+
+    K -- "(4) Fetch Job" --> B1
+    B1 -- "(5) Extract" --> B2
+    B2 -- "(6) Save Frames" --> S
+    B2 -- "(7) Publish Tasks" --> K
+
+    K -- "(8) Fetch Task" --> C1
+    C1 -- "(9) Inference" --> C2
+    C2 -- "(10) Read Frame" --> S
+    C1 -- "(11) Save Result" --> D
+
+    U -- "(12) View Results" --> A1
+    A1 -- "(13) Query" --> D
+    A1 -- "(14) Stream" --> S
 ```
 
 ## 3. Core Components
 
 ### Service A: Ingestion & Analytics Service
 - **Role**: Entry point for users. Handles uploads, queues video tasks, and serves the dashboard UI/API for viewing results.
-- **Tech**: FastAPI (Python), Jinja2.
+- **Tech**: FastAPI (Python), Jinja2, Pydantic.
 - **Data Flow**: `Upload -> Disk -> Kafka (video-uploads)` and `DB -> UI`
 
 ### Service B: Processing Service
 - **Role**: Consumes uploaded videos, extracts individual frames at a specific interval.
-- **Tech**: Python Asyncio, OpenCV.
+- **Tech**: Python Asyncio, OpenCV, Pydantic.
 - **Data Flow**: `Kafka (video-uploads) -> Frame Extraction -> Disk -> Kafka (frame-tasks)`
 
 ### Service C: Detection Service
 - **Role**: Consumes frame tasks and runs object detection.
-- **Tech**: Python Asyncio, Ultralytics YOLOv8.
+- **Tech**: Python Asyncio, Ultralytics YOLOv8, SQLAlchemy, Pydantic.
 - **Data Flow**: `Kafka (frame-tasks) -> AI Inference -> PostgreSQL`
 
-## 4. Key Design Decisions
+## 4. Project Structure
+```text
+├── services
+│   ├── ingestion       # FastAPI App + Dashboard (Port 8000)
+│   │   ├── main.py
+│   │   └── templates/  # Dashboard HTML
+│   ├── processing      # Frame Extraction Worker
+│   │   ├── worker.py
+│   │   └── processing.py
+│   └── detection       # AI Inference Worker
+│       ├── main.py
+│       └── detector.py
+├── shared              # Shared schemas, storage, and database logic
+│   ├── database.py     # SQLAlchemy/Async engine setup
+│   ├── models.py       # SQL Models
+│   ├── schemas.py      # Pydantic validation schemas
+│   ├── mq.py           # Kafka Producer/Consumer
+│   └── storage.py      # File system abstraction
+├── scripts             # DB management and diagnostic scripts
+│   ├── init_db.py      # Table creation
+│   └── drop_db.py      # Database cleanup
+└── docker-compose.yml  # System orchestration
+```
 
-### 4.1 Message Broker: Apache Kafka
-We use **Apache Kafka** (KRaft mode) for its superior durability and scaling characteristics.
+## 5. Key Design Decisions
+
+### 5.1 Message Broker: Apache Kafka
+We use **Apache Kafka** (KRaft mode) for its superior durability and scaling characteristics. All messages are validated using **Pydantic** before publishing and upon consumption.
 
 | Topic | Producer | Consumer | Purpose |
 | :--- | :--- | :--- | :--- |
 | `video-uploads` | Ingestion | Processing | New videos to be fragmented into frames |
 | `frame-tasks` | Processing | Detection | Individual frames to be analyzed by AI |
 
-### 4.2 Storage: Shared Volume
+### 5.2 Storage: Shared Volume
 We use a Docker shared volume for storing videos and extracted frames. In a cloud environment, this would be replaced with an S3-compatible object store.
 
-### 4.3 Database: PostgreSQL
-Stores structured detection results for querying and visualization.
+### 5.3 Database: PostgreSQL
+Stores structured detection results for querying and visualization. Managed via SQLAlchemy (async).
 
-## 5. Scalability Considerations
+## 6. Scalability Considerations
 - **Independent Scaling**: If frame extraction is slow, we can increase `Processing` replicas. If AI inference is the bottleneck, we scale `Detection`.
 - **Kafka Partitions**: Increasing partitions in either topic allows for higher parallel throughput.

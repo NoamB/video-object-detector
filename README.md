@@ -16,10 +16,10 @@ A scalable, asynchronous 3-service system for processing video uploads, extracti
   - Consumes from Kafka (`frame-tasks`).
   - Runs YOLOv8 inference.
   - Persists results to PostgreSQL.
-- **Infrastructure**:
-  - Apache Kafka (KRaft mode).
-  - PostgreSQL for result storage.
-  - Docker Compose orchestration.
+- **Robustness**:
+  - Full Type Hinting and Pydantic validation.
+  - Automatic Database Initialization.
+  - SHA256 Data Integrity Verification.
 
 ## 🏗 Architecture
 
@@ -40,18 +40,14 @@ docker-compose up --build
 # Upload a video file to the ingestion service
 curl -X POST -F "file=@/path/to/your/video.mp4" http://localhost:8000/upload
 ```
-Response:
-```json
-{
-  "video_id": "843f5...",
-  "status": "published",
-  "message": "Video received and queued for processing"
-}
-```
 
 ## 🔍 Checking Results
 
-You can inspect the results in the PostgreSQL database:
+### Dashboard
+Visit `http://localhost:8000/` in your browser to view the real-time detection feed.
+
+### Command Line
+You can also inspect the results in the PostgreSQL database:
 ```bash
 # Connect to DB container
 docker-compose exec postgres psql -U user -d videodb
@@ -60,7 +56,7 @@ docker-compose exec postgres psql -U user -d videodb
 SELECT * FROM detections ORDER BY timestamp DESC LIMIT 5;
 ```
 
-### 🗄 Database Management
+## 🗄 Database Management
 - **Initialize Database**:
   ```bash
   docker-compose exec detection-service python scripts/init_db.py
@@ -75,9 +71,11 @@ SELECT * FROM detections ORDER BY timestamp DESC LIMIT 5;
 ### Project Structure
 ```text
 ├── services
-│   ├── ingestion       # FastAPI App (Port 8000)
+│   ├── ingestion       # FastAPI App + Dashboard (Port 8000)
 │   ├── processing      # Frame Extraction Worker
 │   └── detection       # AI Inference Worker
-├── shared              # Shared storage/MQ libraries
-└── docker-compose.yml  # Orchestration
+├── shared              # Shared schemas, storage, and database logic
+├── scripts             # DB management and diagnostic scripts
+├── docker-compose.yml  # System orchestration
+└── ARCHITECTURE.md     # System design documentation
 ```
