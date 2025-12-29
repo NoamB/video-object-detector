@@ -12,6 +12,17 @@ services:
     depends_on:
       - kafka
 
+  processing-service:
+    build:
+      context: .
+      dockerfile: services/processing/Dockerfile
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - video_data:/data
+    depends_on:
+      - kafka
+
   detection-service:
     build:
       context: .

@@ -1,21 +1,23 @@
 # Video Ingestion and Object Detection System
 
-A scalable, async dual-service system for processing video uploads, extracting frames, and detecting objects using YOLOv8.
+A scalable, asynchronous 3-service system for processing video uploads, extracting frames, and detecting objects.
 
 ## 🚀 Features
 
 - **Service A (Ingestion)**: 
-  - Fast, async file upload (FastAPI).
-  - Frame extraction (OpenCV).
-  - Reliable task publishing to Redis.
-- **Service B (Detection Worker)**: 
-  - Consumes frames from Redis using **Reliable Queue Pattern** (`BRPOPLPUSH`).
+  - Fast file upload (FastAPI).
+  - Reliable task publishing to Kafka (`video-uploads`).
+- **Service B (Processing Worker)**:
+  - Consumes from Kafka (`video-uploads`).
+  - Extracts frames using OpenCV.
+  - Publishes frame tasks to Kafka (`frame-tasks`).
+- **Service C (Detection Worker)**: 
+  - Consumes from Kafka (`frame-tasks`).
   - Runs YOLOv8 inference.
-  - key-value extraction of classes and bounding boxes.
   - Persists results to PostgreSQL.
 - **Infrastructure**:
-  - Redis with **AOF Persistence** (Zero data loss on broker crash).
-  - PostgreSQL for structured data storage.
+  - Apache Kafka (KRaft mode).
+  - PostgreSQL for result storage.
   - Docker Compose orchestration.
 
 ## 🏗 Architecture
@@ -40,9 +42,9 @@ curl -X POST -F "file=@/path/to/your/video.mp4" http://localhost:8000/upload
 Response:
 ```json
 {
-  "video_id": "c5e9335a-...",
-  "status": "accepted",
-  "message": "Video accepted for processing"
+  "video_id": "843f5...",
+  "status": "published",
+  "message": "Video received and queued for processing"
 }
 ```
 
@@ -53,17 +55,16 @@ You can inspect the results in the PostgreSQL database:
 # Connect to DB container
 docker-compose exec postgres psql -U user -d videodb
 
-# Query detections
+# Query results
 SELECT * FROM detections ORDER BY timestamp DESC LIMIT 5;
 ```
 
 ### 🗄 Database Management
-Run these management scripts from inside the containers using `docker-compose exec`:
 - **Initialize Database**:
   ```bash
   docker-compose exec detection-service python scripts/init_db.py
   ```
-- **Wipe Database**:
+- **Drop Database**:
   ```bash
   docker-compose exec detection-service python scripts/drop_db.py
   ```
@@ -72,15 +73,10 @@ Run these management scripts from inside the containers using `docker-compose ex
 
 ### Project Structure
 ```text
-.
 ├── services
 │   ├── ingestion       # FastAPI App (Port 8000)
-│   └── detection       # Worker Process
-├── docker-compose.yml  # Orchestration
-└── ARCHITECTURE.md     # Design Documentation
+│   ├── processing      # Frame Extraction Worker
+│   └── detection       # AI Inference Worker
+├── shared              # Shared storage/MQ libraries
+└── docker-compose.yml  # Orchestration
 ```
-
-### Configuration
-Environment variables can be set in `docker-compose.yml`:
-- `REDIS_HOST`, `REDIS_PORT`
-- `DATABASE_URL`

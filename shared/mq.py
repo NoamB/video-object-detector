@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 
 class KafkaProducer:
     """
-    Asynchronous Kafka Producer for Ingestion Service.
+    Asynchronous Kafka Producer.
     """
-    def __init__(self, bootstrap_servers: str = "kafka:9092"):
+    def __init__(self, topic: str, bootstrap_servers: str = "kafka:9092"):
         self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", bootstrap_servers)
-        self.topic = "frame-tasks"
+        self.topic = topic
         self.producer = None
 
     async def start(self):
@@ -26,7 +26,7 @@ class KafkaProducer:
                     value_serializer=lambda v: json.dumps(v).encode('utf-8')
                 )
                 await self.producer.start()
-                logger.info(f"Kafka Producer started, connected to {self.bootstrap_servers}")
+                logger.info(f"Kafka Producer started, topic: {self.topic}, connected to {self.bootstrap_servers}")
                 return
             except Exception as e:
                 logger.warning(f"Failed to start Kafka Producer (attempt {i+1}/{max_retries}): {e}")
@@ -40,26 +40,18 @@ class KafkaProducer:
         if self.producer:
             await self.producer.stop()
 
-    async def publish_frame(self, video_id: str, frame_path: str, frame_index: int, frame_hash: str, video_hash: str):
+    async def publish(self, message: Dict[str, Any]):
         if not self.producer:
             await self.start()
-            
-        message = {
-            "video_id": video_id,
-            "frame_path": frame_path,
-            "frame_index": frame_index,
-            "frame_hash": frame_hash,
-            "video_hash": video_hash
-        }
         await self.producer.send_and_wait(self.topic, message)
 
 class KafkaConsumer:
     """
-    Asynchronous Kafka Consumer for Detection Worker.
+    Asynchronous Kafka Consumer.
     """
-    def __init__(self, bootstrap_servers: str = "kafka:9092", group_id: str = "detection-group"):
+    def __init__(self, topic: str, bootstrap_servers: str = "kafka:9092", group_id: str = "default-group"):
         self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", bootstrap_servers)
-        self.topic = "frame-tasks"
+        self.topic = topic
         self.group_id = group_id
         self.consumer = None
 
@@ -77,7 +69,7 @@ class KafkaConsumer:
                     enable_auto_commit=False # Manual commit for reliability
                 )
                 await self.consumer.start()
-                logger.info(f"Kafka Consumer started, joined group {self.group_id}")
+                logger.info(f"Kafka Consumer started, topic: {self.topic}, joined group {self.group_id}")
                 return
             except Exception as e:
                 logger.warning(f"Failed to start Kafka Consumer (attempt {i+1}/{max_retries}): {e}")

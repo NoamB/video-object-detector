@@ -26,7 +26,7 @@ async def main():
     
     # Initialize components
     storage = FileSystemStorage()
-    consumer = KafkaConsumer()
+    consumer = KafkaConsumer(topic="frame-tasks", group_id="detection-group")
     await consumer.start()
     detector = ObjectDetector()
     
