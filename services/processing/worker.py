@@ -2,34 +2,37 @@ import asyncio
 import logging
 import signal
 import os
+from typing import Any, Dict, List, Optional, Tuple
+
 from shared.mq import KafkaConsumer, KafkaProducer
 from shared.storage import FileSystemStorage
+from shared.schemas import VideoTask, FrameTask
 from processing import extract_frames
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def main():
+async def main() -> None:
     logger.info("Starting Processing Worker...")
     
     # Initialize components
-    storage = FileSystemStorage()
+    storage: FileSystemStorage = FileSystemStorage()
     # Consumer for video uploads
-    consumer = KafkaConsumer(topic="video-uploads", group_id="processing-group")
+    consumer: KafkaConsumer = KafkaConsumer(topic="video-uploads", group_id="processing-group")
     # Producer for frame tasks
-    producer = KafkaProducer(topic="frame-tasks")
+    producer: KafkaProducer = KafkaProducer(topic="frame-tasks")
     
     await consumer.start()
     await producer.start()
     
-    shutdown_event = asyncio.Event()
+    shutdown_event: asyncio.Event = asyncio.Event()
 
-    def handle_signal():
+    def handle_signal() -> None:
         logger.info("Shutdown signal received")
         shutdown_event.set()
 
-    loop = asyncio.get_running_loop()
+    loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, handle_signal)
 
@@ -37,15 +40,24 @@ async def main():
 
     while not shutdown_event.is_set():
         try:
-            job_info = await consumer.get_next_job()
+            job_info: Optional[Tuple[Any, Dict[str, Any]]] = await consumer.get_next_job()
             if not job_info:
                 # Small sleep to be nice to the CPU if no messages are coming
                 await asyncio.sleep(0.1)
                 continue
                 
             kafka_msg, job_data = job_info
-            video_id = job_data.get("video_id")
-            video_path = job_data.get("video_path")
+            
+            # Use Pydantic to validate incoming task
+            try:
+                video_task = VideoTask(**job_data)
+            except Exception as e:
+                logger.error(f"Invalid VideoTask received: {e}")
+                await consumer.acknowledge(kafka_msg)
+                continue
+                
+            video_id: str = video_task.video_id
+            video_path: str = video_task.video_path
             
             logger.info(f"Processing video {video_id} at {video_path}")
             
@@ -55,24 +67,27 @@ async def main():
                 continue
 
             # 1. Compute Video Hash (useful for downstream detection verification)
-            video_hash = storage.compute_file_hash(video_path)
+            video_hash: str = storage.compute_file_hash(video_path)
             
             # 2. Extract Frames
-            frame_data = extract_frames(video_path, video_id, storage)
+            frame_data: List[Tuple[str, str]] = extract_frames(video_path, video_id, storage)
             
             # 3. Publish Frame Tasks
             for path, frame_hash in frame_data:
-                filename = os.path.basename(path)
+                filename: str = os.path.basename(path)
                 try:
                     # Extract frame index from filename like "120.jpg"
-                    frame_idx = int(os.path.splitext(filename)[0])
-                    await producer.publish({
-                        "video_id": video_id,
-                        "frame_path": path,
-                        "frame_index": frame_idx,
-                        "frame_hash": frame_hash,
-                        "video_hash": video_hash
-                    })
+                    frame_idx: int = int(os.path.splitext(filename)[0])
+                    
+                    frame_task = FrameTask(
+                        video_id=video_id,
+                        frame_path=path,
+                        frame_index=frame_idx,
+                        frame_hash=frame_hash,
+                        video_hash=video_hash
+                    )
+                    
+                    await producer.publish(frame_task)
                 except Exception as e:
                     logger.error(f"Failed to publish frame task: {e}")
             

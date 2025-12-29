@@ -3,7 +3,8 @@ import json
 import asyncio
 import logging
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Union
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +12,12 @@ class KafkaProducer:
     """
     Asynchronous Kafka Producer.
     """
-    def __init__(self, topic: str, bootstrap_servers: str = "kafka:9092"):
-        self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", bootstrap_servers)
-        self.topic = topic
-        self.producer = None
+    def __init__(self, topic: str, bootstrap_servers: str = "kafka:9092") -> None:
+        self.bootstrap_servers: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", bootstrap_servers)
+        self.topic: str = topic
+        self.producer: Optional[AIOKafkaProducer] = None
 
-    async def start(self):
+    async def start(self) -> None:
         max_retries = 10
         retry_delay = 5
         for i in range(max_retries):
@@ -36,26 +37,32 @@ class KafkaProducer:
                     logger.error("Max retries reached. Kafka Producer failed to start.")
                     raise
 
-    async def stop(self):
+    async def stop(self) -> None:
         if self.producer:
             await self.producer.stop()
 
-    async def publish(self, message: Dict[str, Any]):
+    async def publish(self, message: Union[Dict[str, Any], BaseModel]) -> None:
         if not self.producer:
             await self.start()
-        await self.producer.send_and_wait(self.topic, message)
+        
+        if isinstance(message, BaseModel):
+            data = message.model_dump()
+        else:
+            data = message
+            
+        await self.producer.send_and_wait(self.topic, data)
 
 class KafkaConsumer:
     """
     Asynchronous Kafka Consumer.
     """
-    def __init__(self, topic: str, bootstrap_servers: str = "kafka:9092", group_id: str = "default-group"):
-        self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", bootstrap_servers)
-        self.topic = topic
-        self.group_id = group_id
-        self.consumer = None
+    def __init__(self, topic: str, bootstrap_servers: str = "kafka:9092", group_id: str = "default-group") -> None:
+        self.bootstrap_servers: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", bootstrap_servers)
+        self.topic: str = topic
+        self.group_id: str = group_id
+        self.consumer: Optional[AIOKafkaConsumer] = None
 
-    async def start(self):
+    async def start(self) -> None:
         max_retries = 10
         retry_delay = 5
         for i in range(max_retries):
@@ -79,7 +86,7 @@ class KafkaConsumer:
                     logger.error("Max retries reached. Kafka Consumer failed to start.")
                     raise
 
-    async def stop(self):
+    async def stop(self) -> None:
         if self.consumer:
             await self.consumer.stop()
 
@@ -99,7 +106,7 @@ class KafkaConsumer:
             logger.error(f"Kafka Consumer error: {e}")
             return None
 
-    async def acknowledge(self, message: Any):
+    async def acknowledge(self, message: Any) -> None:
         """
         Acknowledge message processing. In Kafka, this means committing the offset.
         """
