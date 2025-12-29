@@ -13,14 +13,14 @@ This system is designed for **Video Ingestion, Processing, and Object Detection*
 
 ```mermaid
 flowchart TD
-    %% Global Styles
-    classDef container fill:#f9f9f9,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,color:#333
-    classDef ingestion fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
-    classDef processing fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000
-    classDef detection fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-    classDef infra fill:#fffef3,stroke:#ef6c00,stroke-width:2px,color:#000
-    classDef module fill:#ffffff,stroke:#333,stroke-width:1px,color:#000
-    classDef user fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
+    %% Global Styles and Colors (High Contrast)
+    classDef container fill:#fcfcfc,stroke:#1a1a1a,stroke-width:2px,stroke-dasharray: 5 5,color:#1a1a1a
+    classDef ingestion fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px,color:#0a192f
+    classDef processing fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#0a192f
+    classDef detection fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#0a192f
+    classDef infra fill:#fffde7,stroke:#e65100,stroke-width:2px,color:#0a192f
+    classDef module fill:#ffffff,stroke:#333333,stroke-width:1.5px,color:#1a1a1a
+    classDef user fill:#ffffff,stroke:#1a1a1a,stroke-width:2px,color:#1a1a1a
 
     U((User)):::user
 
@@ -74,6 +74,9 @@ flowchart TD
     U -- "(12) View Results" --> A1
     A1 -- "(13) Query" --> D
     A1 -- "(14) Stream" --> S
+
+    %% Darker and thicker arrows for better visibility
+    linkStyle default stroke:#222,stroke-width:2px,color:#000
 ```
 
 ## 3. Core Components
