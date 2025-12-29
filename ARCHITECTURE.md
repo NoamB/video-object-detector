@@ -32,7 +32,7 @@ graph TD
 
     subgraph "Infrastructure"
         Vol[Shared Volume / S3]:::storage
-        Redis[(Redis Queue)]:::storage
+        Kafka[[Kafka Broker]]:::storage
         DB[(PostgreSQL)]:::storage
     end
 
@@ -40,9 +40,9 @@ graph TD
     API -- 1. Extract --> Extractor
     Extractor -- 2. Save Frames --> AdapterA
     AdapterA -- Write --> Vol
-    Extractor -- 3. Publish Paths --> Redis
+    Extractor -- 3. Publish Paths --> Kafka
     
-    Redis -- 4. Reliable Consume <br>(BRPOPLPUSH) --> Worker
+    Kafka -- 4. Consume --> Worker
     Worker -- 5. Read Frame --> AdapterB
     AdapterB -- Read --> Vol
     Worker -- 6. Inference --> Model
@@ -67,38 +67,28 @@ graph TD
 
 ## 4. Key Design Decisions
 
-### 4.1 Message Broker: Redis vs. Kafka
-We rejected Apache Kafka in favor of **Redis** for this specific use case.
+### 4.1 Message Broker: Apache Kafka
+We use **Apache Kafka** (KRaft mode) for its superior durability and scaling characteristics compared to simple work queues.
 
-| Feature | Redis (Selected) | Apache Kafka |
-| :--- | :--- | :--- |
-| **Pattern** | **Work Queue** (Distribute jobs to one of N workers) | **Event Stream** (Replay history to many consumer groups) |
-| **Throughput** | High (Internal Memory), limited by single thread (~100k/s) | Massive (Disk Sequential I/O), scales horizontally |
-| **Complexity** | Low. Minimal ops. | High. Requires Zookeeper/KRaft, schema registry. |
-| **Latency** | Sub-millisecond | Millisecond+ |
+| Feature | Apache Kafka |
+| :--- | :--- |
+| **Pattern** | **Event Stream** (Distributed partitions with consumer groups) |
+| **Throughput** | Massive (Disk Sequential I/O), scales horizontally |
+| **Persistence** | Configurable retention periods, replayable logs |
+| **Reliability** | Message durability across broker restarts |
 
-**Decision**: We need a Work Queue to distribute extraction jobs, not a persistent event log. Redis is lighter, faster, and sufficiently scalable for our needs. We can switch to Kafka if we need massive fan-out (multiple teams consuming the same video stream) or extensive replay retention.
+**Decision**: Kafka provides the horizontal scaling (via partitions) and fault-tolerance required for large-scale video processing pipelines.
 
-### 4.2 Database: PostgreSQL vs. MongoDB
-We rejected MongoDB in favor of **PostgreSQL**.
-- **Reason**: While detection results are JSON, video analytics require structured queries ("How many cars in the last hour?"). Postgres offers superior aggregations, relational integrity, and efficient JSONB querying.
+### 4.2 Database: PostgreSQL
+We use **PostgreSQL** for structured storage of detection metadata.
+- **Reason**: Detection results are stored as JSONB, allowing for flexible schemas while maintaining relational integrity for cross-video analytics.
 
 ### 4.3 Reliability & Persistence
-To ensure **Zero Data Loss**, we employ a two-tiered strategy:
-
-1.  **Broker Safety (Redis AOF)**:
-    - We enable **Append Only File (AOF)** persistence in Redis.
-    - Every write operation is logged to disk.
-    - **Outcome**: If the Redis server crashes and restarts, the queues are reconstructed exactly as they were.
-
-2.  **Worker Safety (Reliable Queue Pattern)**:
-    - We use the `BRPOPLPUSH` command.
-    - **Mechanism**: Atomically moves a job from `queue:pending` to `queue:processing`.
-    - **Outcome**: If a Worker crashes *while* processing a frame, the job is not lost—it remains safely in the `processing` list. A recovery process (or the restarted worker) can reclaim incomplete jobs.
+1.  **Broker Safety (Kafka)**:
+    - Kafka stores messages on disk. We use the **KRaft** architecture to eliminate Zookeeper dependency.
+2.  **Worker Safety (Consumer Groups)**:
+    - We use manual offset commits. If a worker crashes mid-task, the message is not acknowledged and will be re-delivered.
 
 ## 5. Scalability Considerations
-- **Frames/Second**: The current architecture allows us to scale **Service B** horizontally to increase inference throughput.
-- **Bottlenecks**: The single Redis instance is the first bottleneck.
-- **Mitigation**:
-    - **Level 1**: Redis Sharding (Partition by Video ID).
-    - **Level 2**: Move to Redis Streams or Kafka for partitioned consumption.
+- **Horizontal Scaling**: Service B (Worker) can be scaled by adding more containers into the same Kafka consumer group.
+- **Partitioning**: Increasing Kafka partitions allows for higher parallel throughput across multiple physical nodes.

@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from database import init_db, AsyncSessionLocal
 from models import DetectionResult
 from shared.storage import FileSystemStorage
-from shared.mq import RedisConsumer
+from shared.mq import KafkaConsumer
 from detector import ObjectDetector
 
 # Configure logging
@@ -26,8 +26,8 @@ async def main():
     
     # Initialize components
     storage = FileSystemStorage()
-    consumer = RedisConsumer()
-    await consumer.connect()
+    consumer = KafkaConsumer()
+    await consumer.start()
     detector = ObjectDetector()
     
     # Executor for running blocking inference
@@ -43,20 +43,19 @@ async def main():
     
     while not shutdown_event.is_set():
         try:
-            # 1. Get Job (Blocking wait)
+            # 1. Get Job
             job_info = await consumer.get_next_job()
             
             if not job_info:
-                await asyncio.sleep(1)
                 continue
                 
-            msg_id, job_data = job_info
+            kafka_msg, job_data = job_info
             video_id = job_data.get("video_id")
             frame_path = job_data.get("frame_path")
             frame_idx = int(job_data.get("frame_index"))
             expected_hash = job_data.get("frame_hash")
             
-            logger.info(f"Processing frame {frame_idx} for video {video_id} (ID: {msg_id})")
+            logger.info(f"Processing frame {frame_idx} for video {video_id}")
             
             # --- Hash Verification ---
             if expected_hash:
@@ -67,7 +66,7 @@ async def main():
                         logger.error(f"CORRUPTION DETECTED: Hash mismatch for frame {frame_idx} of video {video_id}. "
                                      f"Expected: {expected_hash}, Actual: {actual_hash}")
                         # Acknowledge to drop it so it's not retried indefinitely in PEL
-                        await consumer.acknowledge(msg_id)
+                        await consumer.acknowledge(kafka_msg)
                         continue
                 except Exception as e:
                     logger.error(f"Failed to read/verify hash for frame {frame_path}: {e}")
@@ -95,14 +94,15 @@ async def main():
                 
             logger.info(f"Saved {len(detections)} detections for frame {frame_idx}")
             
-            # 4. Acknowledge (XACK)
-            await consumer.acknowledge(msg_id)
+            # 4. Acknowledge (Commit Offset)
+            await consumer.acknowledge(kafka_msg)
             
         except Exception as e:
             logger.error(f"Error in worker loop: {e}")
             await asyncio.sleep(1)
 
     logger.info("Inference worker shutting down.")
+    await consumer.stop()
     executor.shutdown(wait=True)
 
 if __name__ == "__main__":

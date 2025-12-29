@@ -4,7 +4,7 @@ import uuid
 import os
 import logging
 from shared.storage import FileSystemStorage
-from shared.mq import RedisProducer
+from shared.mq import KafkaProducer
 from processing import extract_frames
 
 # Configure logging
@@ -14,13 +14,20 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Video Ingestion Service")
 
 # Initialize Singletons
-# In production, might want 'startup' event, but this is fine for MVP
 storage = FileSystemStorage()
-producer = RedisProducer()
+producer = KafkaProducer()
 
-def process_video_bg(video_path: str, video_id: str):
+@app.on_event("startup")
+async def startup_event():
+    await producer.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await producer.stop()
+
+async def process_video_bg(video_path: str, video_id: str):
     """
-    Background task to extract frames and publish to Redis.
+    Background task to extract frames and publish to Kafka.
     """
     try:
         logger.info(f"Starting processing for video {video_id}")
@@ -32,13 +39,13 @@ def process_video_bg(video_path: str, video_id: str):
         # 2. Extract Frames
         frame_data = extract_frames(video_path, video_id, storage, sample_rate_sec=1)
         
-        # 3. Publish to Redis
+        # 3. Publish to Kafka
         for path, frame_hash in frame_data:
             # Extract frame index from filename (e.g., "120.jpg" -> 120)
             filename = os.path.basename(path)
             try:
                 frame_idx = int(os.path.splitext(filename)[0])
-                producer.publish_frame(
+                await producer.publish_frame(
                     video_id, 
                     path, 
                     frame_idx, 
