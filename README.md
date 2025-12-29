@@ -2,7 +2,7 @@
 
 A scalable, asynchronous 3-service system for processing video uploads, extracting frames, and detecting objects.
 
-## 🚀 Features
+## Features
 
 - **Service A (Ingestion & Analytics)**: 
   - Fast file upload (FastAPI).
@@ -21,11 +21,11 @@ A scalable, asynchronous 3-service system for processing video uploads, extracti
   - Automatic Database Initialization.
   - SHA256 Data Integrity Verification.
 
-## 🏗 Architecture
+## Architecture
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for a detailed design document and diagrams.
 
-## 🛠 Setup & Running
+## Setup & Running
 
 ### Prerequisites
 - Docker & Docker Compose
@@ -41,7 +41,7 @@ docker-compose up --build
 curl -X POST -F "file=@/path/to/your/video.mp4" http://localhost:8000/upload
 ```
 
-## 🔍 Checking Results
+## Checking Results
 
 ### Dashboard
 Visit `http://localhost:8000/` in your browser to view the real-time detection feed.
@@ -56,7 +56,7 @@ docker-compose exec postgres psql -U user -d videodb
 SELECT * FROM detections ORDER BY timestamp DESC LIMIT 5;
 ```
 
-## 🗄 Database Management
+## Database Management
 - **Initialize Database**:
   ```bash
   docker-compose exec detection-service python scripts/init_db.py
@@ -66,7 +66,7 @@ SELECT * FROM detections ORDER BY timestamp DESC LIMIT 5;
   docker-compose exec detection-service python scripts/drop_db.py
   ```
 
-## 🧪 Development
+## Development
 
 ### Project Structure
 ```text
